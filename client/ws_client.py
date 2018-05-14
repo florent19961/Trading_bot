@@ -1,24 +1,11 @@
 import asyncio
 import websockets
 import json
-import logging
+import log
 import sqlite3
 
 
-# BEGIN - LOGS
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-fh = logging.FileHandler('../logs/client.log')
-ch.setLevel(logging.INFO)
-fh.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-ch.setFormatter(formatter)
-fh.setFormatter(formatter)
-logger.addHandler(ch)
-logger.addHandler(fh)
-# END - LOGS
-
+logger = log.custom_logger('client')
 con = sqlite3.connect('../data/crypto.db')
 c = con.cursor()
 
