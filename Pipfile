@@ -17,6 +17,10 @@ jupyter = "*"
 pandas = "*"
 sympy = "*"
 nose = "*"
+pymongo = "*"
+keras = "*"
+tensorflow = "*"
+quandl = "*"
 
 [dev-packages]
 
