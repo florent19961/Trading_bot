@@ -2,74 +2,98 @@ from bokeh.io import output_notebook, show
 from bokeh.plotting import figure, output_file
 
 
-def strategy_based_results(decisions_list, market_prices_deltas, fee_rate=0.3, verbose=False):
+"""Gain function"""
+"""gradient = True return the last gain value not the list of the whole evolution"""
+def strategy_based_results(decisions_list, market_prices_deltas, fee_rate=0.3, gradient = False):
     """
-    Returns the list of successive gains.
+    Returns the list of successive gains if gradient = False.
     Prints other info like number of hold, buy, sell, free_cash, fee costs.
     """
 
     cash = True
     decisions_results = [100]
-    fees_cost = 0
-    got_cash = 0
-    buy_decisions = 0
-    sell_decisions = 0
-    hold_decisions = 0
+    decisions_results_evite = [100]
+    fees_cost = [100]
+    free_cash = 0
+    achat = 0
+    vente = 0
+    hold = 0
+    if not gradient:
+        
+        for i in range(len(decisions_list)):
 
-    for i in range(len(decisions_list)):
+            if decisions_list[i] == 1 and cash:
+                # Buy
+                cash = False
+                decisions_results.append(
+                    decisions_results[-1]*(100 + market_prices_deltas[i] - fee_rate) / 100)
+                fees_cost.append(
+                    fees_cost[-1] + decisions_results[-1] * fee_rate / 100)
+                achat += 1
 
-        if decisions_list[i] == 1 and cash:
-            # Buy
-            cash = False
-            decisions_results.append(
-                decisions_results[-1]*(100 + market_prices_deltas[i] - fee_rate) / 100)
-            fees_cost += decisions_results[-1] * fee_rate / 100
-            buy_decisions += 1
-            got_cash += 1
+            elif decisions_list[i] == -1 and cash:
+                # Wait
+                decisions_results.append(decisions_results[-1])
+                free_cash += 1
 
-        elif decisions_list[i] == -1 and cash:
-            # Wait
-            decisions_results.append(decisions_results[-1])
-            got_cash += 1
+            elif decisions_list[i] == 0 and cash:
+                # Wait
+                decisions_results.append(decisions_results[-1])
+                free_cash += 1
 
-        elif decisions_list[i] == 0 and cash:
-            # Wait
-            decisions_results.append(decisions_results[-1])
-            got_cash += 1
+            elif decisions_list[i] == 0 and not cash:
+                # Hold
+                decisions_results.append(
+                    decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
+                hold += 1
 
-        elif decisions_list[i] == 0 and not cash:
-            # Hold
-            decisions_results.append(
-                decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
-            hold_decisions += 1
+            elif decisions_list[i] == -1 and not cash:
+                # Sell
+                cash = True
+                decisions_results.append(
+                    decisions_results[-1] * (100 - fee_rate) / 100)
+                fees_cost.append(
+                    fees_cost[-1] + decisions_results[-1] * fee_rate / 100)
+                vente += 1
 
-        elif decisions_list[i] == -1 and not cash:
-            # Sell
-            cash = True
-            decisions_results.append(
-                decisions_results[-1] * (100 - fee_rate) / 100)
-            fees_cost += decisions_results[-1] * fee_rate / 100
-            sell_decisions += 1
+            elif decisions_list[i] == 1 and not cash:
+                # Hold
+                decisions_results.append(
+                    decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
+                hold += 1
 
-        elif decisions_list[i] == 1 and not cash:
-            # Hold
-            decisions_results.append(
-                decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
-            hold_decisions += 1
+            else:
+                raise Exception
+        transactions = achat + vente
+        print("Gain total = ", str(round(decisions_results[-1] - 100,2)), "%.")
+        print("Nombre de transactions = ", str(achat + vente))
+        print("Argent dépensé en commissions = ", str(round(fees_cost[-1] - 100, 2)), "%.")
+        print("Nombre de chandeliers sans cash engagé = ", str(free_cash))
+        print("Nombre de chandeliers sur lesquels on a juste hold = ", str(hold))
+        return decisions_results
 
-        else:
-            raise Exception
+    elif gradient:
+        decisions_results = 100
 
-    if verbose:
-        print('Aggregated results are:')
-        print('Hold         : {}'.format(hold_decisions))
-        print('Buy          : {}'.format(buy_decisions))
-        print('Sell         : {}'.format(sell_decisions))
-        print('Got_cash     : {}'.format(got_cash))
-        print('Fees_cost    : {}% of initial investment'.format(fees_cost))
-        print('Total_result : {0:+}% from initial investment'.format(decisions_results[-1] - 100))
+        for i in range(len(decisions_list)):
+            if cash:
+                if decisions_list[i] == 1:
+                    # Buy
+                    cash = False
+                    decisions_results = decisions_results * (100 + market_prices_deltas[i] - fee_rate) / 100
 
-    return decisions_results
+            else:
+                if decisions_list[i] in [0,1]:
+                    # Hold
+                    decisions_results = decisions_results * (100 + market_prices_deltas[i]) / 100
+
+                else:
+                    # Sell
+                    cash = True
+                    decisions_results = decisions_results * (100 - fee_rate) / 100
+        
+        return decisions_results
+        
 
 def buy_hold_results(market_prices_deltas):
     market_var = [100]
