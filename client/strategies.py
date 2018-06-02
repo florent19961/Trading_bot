@@ -1,9 +1,10 @@
-from models import Tickers
+from models import Candles
 
 
 class Macd():
-    def __init__(self):
+    def __init__(self, product):
         self.name = 'macd'
+        self.product = product
 
     def __compute(self, last26):
         #last26 should be sorted from the oldest to the newest
@@ -19,15 +20,15 @@ class Macd():
         return mme(last26[14:25]) - mme(last26)
 
     def apply(self):
-        last_candles = Tickers().get_last_candles(3600,'BTC-EUR',26) # to implement
+        last_candles = Candles(self.product).get_last_candles_price_list(3600,26)
         macd = self.__compute(last_candles)
 
         if macd > 0:
-            return 1
+            return 'Buy'
         elif macd < 0:
-            return -1
+            return 'Sell'
         else:
-            return 0
+            return 'Wait'
 
 
 # -------------------------------------
