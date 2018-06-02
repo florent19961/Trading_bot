@@ -4,22 +4,20 @@ from bokeh.plotting import figure, output_file
 
 """Gain function"""
 """gradient = True return the last gain value not the list of the whole evolution"""
-def strategy_based_results(decisions_list, market_prices_deltas, fee_rate=0.3, gradient = False):
+def strategy_based_results(decisions_list, market_prices_deltas, fee_rate=0.3, verbose=False, gradient=False):
     """
-    Returns the list of successive gains if gradient = False.
+    Returns the list of successive gains.
     Prints other info like number of hold, buy, sell, free_cash, fee costs.
     """
 
     cash = True
     decisions_results = [100]
-    decisions_results_evite = [100]
-    fees_cost = [100]
-    free_cash = 0
-    achat = 0
-    vente = 0
-    hold = 0
+    fees_cost = 0
+    got_cash = 0
+    buy_decisions = 0
+    sell_decisions = 0
+    hold_decisions = 0
     if not gradient:
-        
         for i in range(len(decisions_list)):
 
             if decisions_list[i] == 1 and cash:
@@ -27,51 +25,53 @@ def strategy_based_results(decisions_list, market_prices_deltas, fee_rate=0.3, g
                 cash = False
                 decisions_results.append(
                     decisions_results[-1]*(100 + market_prices_deltas[i] - fee_rate) / 100)
-                fees_cost.append(
-                    fees_cost[-1] + decisions_results[-1] * fee_rate / 100)
-                achat += 1
+                fees_cost += decisions_results[-1] * fee_rate / 100
+                buy_decisions += 1
+                got_cash += 1
 
             elif decisions_list[i] == -1 and cash:
                 # Wait
                 decisions_results.append(decisions_results[-1])
-                free_cash += 1
+                got_cash += 1
 
             elif decisions_list[i] == 0 and cash:
                 # Wait
                 decisions_results.append(decisions_results[-1])
-                free_cash += 1
+                got_cash += 1
 
             elif decisions_list[i] == 0 and not cash:
                 # Hold
                 decisions_results.append(
                     decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
-                hold += 1
+                hold_decisions += 1
 
             elif decisions_list[i] == -1 and not cash:
                 # Sell
                 cash = True
                 decisions_results.append(
                     decisions_results[-1] * (100 - fee_rate) / 100)
-                fees_cost.append(
-                    fees_cost[-1] + decisions_results[-1] * fee_rate / 100)
-                vente += 1
+                fees_cost += decisions_results[-1] * fee_rate / 100
+                sell_decisions += 1
 
             elif decisions_list[i] == 1 and not cash:
                 # Hold
                 decisions_results.append(
                     decisions_results[-1] * (100 + market_prices_deltas[i]) / 100)
-                hold += 1
+                hold_decisions += 1
 
             else:
                 raise Exception
-        transactions = achat + vente
-        print("Gain total = ", str(round(decisions_results[-1] - 100,2)), "%.")
-        print("Nombre de transactions = ", str(achat + vente))
-        print("Argent dépensé en commissions = ", str(round(fees_cost[-1] - 100, 2)), "%.")
-        print("Nombre de chandeliers sans cash engagé = ", str(free_cash))
-        print("Nombre de chandeliers sur lesquels on a juste hold = ", str(hold))
-        return decisions_results
 
+        if verbose:
+            print('Aggregated results are:')
+            print('Hold         : {}'.format(hold_decisions))
+            print('Buy          : {}'.format(buy_decisions))
+            print('Sell         : {}'.format(sell_decisions))
+            print('Got_cash     : {}'.format(got_cash))
+            print('Fees_cost    : {}% of initial investment'.format(fees_cost))
+            print('Total_result : {0:+}% from initial investment'.format(decisions_results[-1] - 100))
+
+        return decisions_results
     elif gradient:
         decisions_results = 100
 
@@ -117,10 +117,10 @@ def plot_strategy_with_labels(labels, decisions, prices, notebook=False, other_l
     y_sell_buy = []
     y_buy_buy = []
     for i in range(len(labels)):
-        if labels[i] == -1 and decisions[i] == -1: # sell/sell (label/prediction)
+        if labels[i] == 0 and decisions[i] == -1: # sell/sell (label/prediction)
             x_sell_sell.append(i)
             y_sell_sell.append(prices[i])
-        elif labels[i] == -1 and decisions[i] == 1: # sell/buy
+        elif labels[i] == 0 and decisions[i] == 1: # sell/buy
             x_sell_buy.append(i)
             y_sell_buy.append(prices[i])
         elif labels[i] == 1 and decisions[i] == -1: # buy/sell
