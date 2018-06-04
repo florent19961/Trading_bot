@@ -3,6 +3,7 @@ __pycache__
 .vscode
 logs
 config.py
+data/db
 
 
 # Compiled source #
