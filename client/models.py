@@ -80,13 +80,14 @@ class Decisions():
     def __init__(self, product='BTC-EUR'):
         self.product = product
 
-    def save_one(self, decision, strategy):
+    def save_one(self, decision, strategy, price):
         try:
             decisions = db[f'decisions_{self.product}']
             decision_to_save = {
                 'time': datetime.utcnow(),
                 'decision': decision,
-                'strategy': strategy
+                'strategy': strategy,
+                'price': price
             }
             decisions.insert_one(decision_to_save)
         except Exception as e:

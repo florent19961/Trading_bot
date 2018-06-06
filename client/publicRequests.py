@@ -4,7 +4,8 @@ import os
 import csv
 import time
 from pymongo import MongoClient
-from client.utils.myprogressbar import ProgressBar
+from utils.myprogressbar import ProgressBar
+from datetime import datetime
 
 
 class PublicRequests():
@@ -169,8 +170,55 @@ class PublicRequests():
                 collection.insert_many(candles_to_add)
         pb.finish()
 
-
     def epoch_to_iso(self, epoch_time):
         t = time.gmtime(epoch_time)
         iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', t)
         return iso
+
+    def get_missing_trades(self):
+        # Check missing ones by distinct trade_id
+
+        client = MongoClient('localhost', 27017)
+        db = client['Cryptobase']  # the database
+        collection = db[f'tickers_{self.product}']  # the collection
+
+        trade_ids = collection.distinct('trade_id')
+        trade_ids.sort()
+        missing_trades = [i for i in range (trade_ids[0], trade_ids[-1]) if i not in trade_ids]
+        print(f'{len(missing_trades)} tickers are missing.')
+        print(missing_trades)
+
+        trades_to_insert = []
+        while len(missing_trades) > 0:
+            print('getting_trades')
+            trades = self.get_product_trades(after=str(missing_trades[0]+100))
+            for trade in trades:
+                trade_id = int(trade['trade_id'])
+                if trade_id in missing_trades:
+                    missing_trades.remove(trade_id)
+                    try:
+                        date = datetime.strptime(trade['time'],'%Y-%m-%dT%H:%M:%S.%fZ')
+                    except ValueError:
+                        date = datetime.strptime(trade['time'],'%Y-%m-%dT%H:%M:%SZ')
+                    
+                    trade_to_insert = {
+                        'time': date,
+                        'trade_id': trade_id,
+                        'price': float(trade['price']),
+                        'last_size': float(trade['size']),
+                        'side': trade['side'],
+                    }
+                    trades_to_insert.append(trade_to_insert)
+                print(f'{len(missing_trades)} still missing')
+            time.sleep(1)
+
+        if len(trades_to_insert) > 0:
+            print('Inserting all missing tickers...')
+            collection.insert_many(trades_to_insert)
+
+def main():
+    pr = PublicRequests(product='BTC-EUR')
+    pr.get_missing_trades()
+
+if __name__ == '__main__':
+    main()
