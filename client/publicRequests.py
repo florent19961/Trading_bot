@@ -186,7 +186,6 @@ class PublicRequests():
         trade_ids.sort()
         missing_trades = [i for i in range (trade_ids[0], trade_ids[-1]) if i not in trade_ids]
         print(f'{len(missing_trades)} tickers are missing.')
-        print(missing_trades)
 
         trades_to_insert = []
         while len(missing_trades) > 0:
@@ -209,16 +208,10 @@ class PublicRequests():
                         'side': trade['side'],
                     }
                     trades_to_insert.append(trade_to_insert)
-                print(f'{len(missing_trades)} still missing')
+            print(f'{len(missing_trades)} still missing')
             time.sleep(1)
 
         if len(trades_to_insert) > 0:
             print('Inserting all missing tickers...')
             collection.insert_many(trades_to_insert)
 
-def main():
-    pr = PublicRequests(product='BTC-EUR')
-    pr.get_missing_trades()
-
-if __name__ == '__main__':
-    main()

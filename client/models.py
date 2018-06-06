@@ -80,14 +80,14 @@ class Decisions():
     def __init__(self, product='BTC-EUR'):
         self.product = product
 
-    def save_one(self, decision, strategy, price):
+    def save_one(self, decision, strategy, order_book):
         try:
             decisions = db[f'decisions_{self.product}']
             decision_to_save = {
                 'time': datetime.utcnow(),
                 'decision': decision,
                 'strategy': strategy,
-                'price': price
+                'order_book': order_book
             }
             decisions.insert_one(decision_to_save)
         except Exception as e:
@@ -96,7 +96,7 @@ class Decisions():
     def get_last(self):
         try:
             decisions = db[f'decisions_{self.product}']
-            return decisions.find().sort({'time': -1}).limit(1)[0]['decision'] #find latest
+            return decisions.find().sort('time', -1).limit(1)[0]['decision'] #find latest
         except:
             return 'Wait'
 

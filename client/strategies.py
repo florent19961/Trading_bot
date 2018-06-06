@@ -1,5 +1,6 @@
 from models import Candles
 import numpy as np
+import json
 
 
 class Calculus():
@@ -81,7 +82,7 @@ class Calculus():
         return self.macd_derivative() * self.macd()
 
     def derivate_volatility(self):
-        return self.volatility - (self.last_candles[1]['max'] - self.last_candles[1]['min'])
+        return self.volatility() - (self.last_candles[1]['max'] - self.last_candles[1]['min'])
 
     def volume_derivative(self):
         return self.last_candles[0]['volume'] - self.last_candles[1]['volume']
@@ -147,8 +148,8 @@ class MLStrategy():
             'macd-1':                   c.macd_1() / price,
             'macd-2':                   c.macd_2() / price,
             'macd-3':                   c.macd_3() / price, 
-            'var-1':                    c.delta_1() / price,
-            'var-2':                    c.delta_2() / price,
+            'var-1':                    c.delta_1() / price * 100,
+            'var-2':                    c.delta_2() / price * 100,
             'macd_second_derivative_n': c.macd_second_derivative() / price,
             'product_macd':             c.d_macd_macd_product() / price ** 2,
             'volatility':               c.volatility() / price,
@@ -159,10 +160,12 @@ class MLStrategy():
             }
         return cols
 
+
     def apply(self):
         cols = self.__compute()
         # Write the ML Strategy here !
 
+        print(json.dumps(cols, indent=4))
         return 'Buy' # Sell or Wait
 
 

@@ -6,25 +6,29 @@ from slackclient import SlackClient
 import strategies
 from models import Decisions #What's the good way to name it ?
 from publicRequests import PublicRequests 
+import logging
 
+
+logger = logging.getLogger('client')
 slack_token = config.SLACK_KEY
 
 product = 'BTC-EUR'
 def decide():
     #TO DO: use more than one strategy
-    strategy = strategies.Macd(product)
+    strategy = strategies.MLStrategy(product)
     decision = strategy.apply()
 
     # Save decision in db 
-    price = 0 # rajoute le best bid ou ask
-    Decisions().save_one(decision, strategy.name, price)
-
+    order_book = PublicRequests(product=product).get_product_order_book(level=2)
+    best_bid = order_book['bids'][0][0]
+    best_ask = order_book['asks'][0][0]
+    Decisions().save_one(decision, strategy.name, order_book)
     # Send decision if not the same to avoid spaming
-    if decision != Decisions().get_last():#does not work: str or object ?
-        send_decision(decision, strategy.name)
+    if decision != Decisions().get_last():
+        send_decision(decision, strategy.name, best_bid, best_ask)
 
     # TO DO: apply decision
-    print(decision) #log
+    
     return decision
 
 
@@ -35,8 +39,9 @@ def post_slack_message(channel, message):
                 text = message)
 
 
-def send_decision(decision, strategy_name):
-    msg = f'*{product}*: {decision} _({strategy_name})_'
+def send_decision(decision, strategy_name, bid, ask):
+    msg = f'*{product}*: {decision} _({strategy_name})_ \n>{ask}€\n>{bid}€'
+    logger.info(f'Bot advice = {msg}')
     post_slack_message('bot_advice', msg)
 
 
