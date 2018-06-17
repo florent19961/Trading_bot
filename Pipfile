@@ -16,13 +16,13 @@ ipython = "*"
 jupyter = "*"
 pandas = "*"
 sympy = "*"
-nose = "*"
 pymongo = "*"
 keras = "*"
 tensorflow = "*"
-quandl = "*"
 
 [dev-packages]
+jupyter-nbextensions-configurator = "*"
+"autopep8" = "*"
 
 [requires]
 python_version = "3.6"
