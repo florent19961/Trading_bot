@@ -3,7 +3,7 @@ __pycache__
 .vscode
 logs
 config.py
-data/db
+data/cryptobase
 
 
 # Compiled source #

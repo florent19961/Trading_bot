@@ -4,9 +4,8 @@ import os
 import csv
 import time
 from pymongo import MongoClient
-from utils.myprogressbar import ProgressBar
+from client.utils.myprogressbar import ProgressBar
 from datetime import datetime
-
 
 class PublicRequests():
     def __init__(self, url='https://api.gdax.com', product='LTC-EUR'):
@@ -123,52 +122,6 @@ class PublicRequests():
         pb.finish()
         return file
 
-    def get_last_missing_rates(self, collection_name, granularity=60):
-        """Get last missing rates for a given granularity.
-
-        Arguments :
-        granularity -- period in seconds
-        """
-        pb = ProgressBar('Getting historic rates to database')
-
-        client = MongoClient('localhost', 27017)
-        db = client['Cryptobase'] # the database
-        collection = db[collection_name] # the collection
-
-        last_candle = collection.find({'length': granularity}).sort([('timestamp', -1)]).limit(1)[0]
-        start = last_candle['timestamp'] + granularity
-        end = int(self.get_time()['epoch'])
-        print(self.get_time()['iso'])
-        inter_start = start
-        inter_end = start + 180 * granularity
-
-        while inter_end < end + 180 * granularity:
-            pb.show_progress((inter_start - start) / (end - start))
-            time.sleep(1)
-            chandelier = self.get_historic_rates(
-                self.epoch_to_iso(inter_start),
-                self.epoch_to_iso(inter_end),
-                granularity)
-            inter_start = inter_end
-            inter_end = inter_start + 180 * granularity
-            candles_to_add = []
-            for row in chandelier:
-                candle = {
-                    'timestamp': int(row[0]),
-                    'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(int(row[0]))),
-                    'length': granularity,
-                    'low_price': float(row[1]),
-                    'high_price': float(row[2]),
-                    'opening_price': float(row[3]),
-                    'closing_price': float(row[4]),
-                    'volume': float(row[5])
-                }
-                candle_end_time = candle['timestamp'] + granularity + 200 # +200s to be sure gdax has closed it already
-                if candle_end_time < end and collection.count({'timestamp': candle['timestamp']}) == 0:
-                    candles_to_add.append(candle)
-            if candles_to_add:
-                collection.insert_many(candles_to_add)
-        pb.finish()
 
     def epoch_to_iso(self, epoch_time):
         t = time.gmtime(epoch_time)

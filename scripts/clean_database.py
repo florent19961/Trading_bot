@@ -3,13 +3,20 @@ from pymongo import MongoClient
 import time
 import numpy as np
 from client.utils.myprogressbar import ProgressBar
+from urllib.parse import quote_plus
+import config
 
 
-def complete_raw_data(collection_name):
+def complete_raw_data(collection_name, credentials): # Not optimized
     pb = ProgressBar('Complete raw data')
 
-    client = MongoClient('localhost', 27017)
-    db = client['Cryptobase']  # the database
+    mongo_uri = 'mongodb://{}:{}@{}/cryptobase'.format(
+        quote_plus(credentials['USERNAME']),
+        quote_plus(credentials['DATABASE_PASSWORD']),
+        credentials['DATABASE_URI']
+    )
+    client = MongoClient(mongo_uri)
+    db = client['cryptobase']  # the database
     collection = db[collection_name]  # the collection
 
     cursor = collection.find({'macd': {'$exists': False}}).sort('timestamp', pymongo.ASCENDING)
@@ -50,12 +57,17 @@ def complete_raw_data(collection_name):
     print(f'{number_to_complete - completed_candles} candles NOT completed')
 
 
-def complete_database_with_missing_candles(collection_name, granularity):
+def complete_database_with_missing_candles(collection_name, granularity, credentials):
     "Complete database with empty candles when one is missing"
     print('Complete database with missing candles')
 
-    client = MongoClient('localhost', 27017)
-    db = client['Cryptobase']  # the database
+    mongo_uri = 'mongodb://{}:{}@{}/cryptobase'.format(
+        quote_plus(credentials['USERNAME']),
+        quote_plus(credentials['DATABASE_PASSWORD']),
+        credentials['DATABASE_URI']
+    )
+    client = MongoClient(mongo_uri)
+    db = client['cryptobase']  # the database
     collection = db[collection_name]  # the collection
 
     timestamps = collection.distinct('timestamp')
@@ -112,12 +124,17 @@ def find_candle_in_list(timestamp, candles):
         return {}
 
 
-def remove_doublons_in_database(collection_name):
+def remove_doublons_in_database(collection_name, credentials):
     "Remove doublons in database"
     pb = ProgressBar('Remove doublons in database')
 
-    client = MongoClient('localhost', 27017)
-    db = client['Cryptobase']  # the database
+    mongo_uri = 'mongodb://{}:{}@{}/cryptobase'.format(
+        quote_plus(credentials['USERNAME']),
+        quote_plus(credentials['DATABASE_PASSWORD']),
+        credentials['DATABASE_URI']
+    )
+    client = MongoClient(mongo_uri)
+    db = client['cryptobase']  # the database
     collection = db[collection_name]  # the collection
 
     cursor = collection.find({}, {'timestamp': 1, '_id': 0}).sort('timestamp', pymongo.DESCENDING)
@@ -168,11 +185,11 @@ def pk(out, low, high):
         return 0
 
 
-def main(collection, length):
-    complete_database_with_missing_candles(collection, length)
+def main(collection, length, credentials):
+    complete_database_with_missing_candles(collection, length, credentials)
     # Remove doublons is not necessary anymore.
-    #remove_doublons_in_database(collection)
-    complete_raw_data(collection)
+    #remove_doublons_in_database(collection, credentials)
+    complete_raw_data(collection, credentials)
 
 
 if __name__ == '__main__':
@@ -190,7 +207,13 @@ if __name__ == '__main__':
 
     parser.add_argument("collection", help="collection to work on in the database", type=str)
     parser.add_argument("length", help="length of the candles of the given collection", type=int)
-
+    parser.add_argument('--mode', dest='mode', type=str, default='dev', help='dev (default) or prod')
     args = parser.parse_args()
 
-    main(args.collection, args.length)
+    if args.mode == 'prod':
+        credentials = config.prod
+    else:
+        credentials = config.dev
+    
+
+    main(args.collection, args.length, credentials)
