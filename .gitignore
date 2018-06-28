@@ -4,6 +4,7 @@ __pycache__
 logs
 config.py
 data/cryptobase
+*.env
 
 
 # Compiled source #

@@ -35,10 +35,31 @@ async def listen(product='BTC-EUR'):
                 logger.info(msg)
                 msg = json.loads(msg)
                 if msg['type'] == 'ticker' and has_subscribed:
-                    models.Ticker(msg).save_one()
+                    ticker_handler(msg)
                 elif msg['type'] == 'subscriptions':
                     has_subscribed = True
 
 
+def ticker_handler(msg):
+    ticker_data = models.TickerData(
+        sequence = msg['sequence'],
+        open_24h = msg['open_24h'],
+        volume_24h = msg['volume_24h'],
+        low_24h = msg['low_24h'],
+        high_24h = msg['high_24h'],
+        volume_30d = msg['volume_30d'],
+        best_bid = msg['best_bid'],
+        best_ask = msg['best_ask']
+    )
+    trade = models.Trade(
+        trade_id = msg['trade_id'],
+        time = msg['time'],
+        product_id = msg['product_id'],
+        size = msg['last_size'],
+        price = msg['price'],
+        side = msg['side'],
+        ticker_data = ticker_data
+    )
+    trade.save()
 
 asyncio.get_event_loop().run_until_complete(listen(product))

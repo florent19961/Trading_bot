@@ -19,10 +19,12 @@ sympy = "*"
 pymongo = "*"
 keras = "*"
 tensorflow = "*"
+pymodm = "*"
 
 [dev-packages]
 jupyter-nbextensions-configurator = "*"
 "autopep8" = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.6"
