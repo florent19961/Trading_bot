@@ -117,10 +117,10 @@ def plot_strategy_with_labels(labels, decisions, prices, notebook=False, other_l
     y_sell_buy = []
     y_buy_buy = []
     for i in range(len(labels)):
-        if labels[i] == 0 and decisions[i] == -1: # sell/sell (label/prediction)
+        if labels[i] == -1 and decisions[i] == -1: # sell/sell (label/prediction)
             x_sell_sell.append(i)
             y_sell_sell.append(prices[i])
-        elif labels[i] == 0 and decisions[i] == 1: # sell/buy
+        elif labels[i] == -1 and decisions[i] == 1: # sell/buy
             x_sell_buy.append(i)
             y_sell_buy.append(prices[i])
         elif labels[i] == 1 and decisions[i] == -1: # buy/sell

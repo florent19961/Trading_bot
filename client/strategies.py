@@ -1,8 +1,13 @@
 import numpy as np
 import json
 from datetime import datetime
-
 from models import CandlesFromTrades, Decision
+
+import pickle
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
 
 class Calculus():
     def __init__(self, product, granularity=3600):
@@ -161,17 +166,51 @@ class MLStrategy(Strategy):
             'derivate_volatility':      c.derivate_volatility() / price,
             'derivate_volume':          c.volume_derivative(),
             'stochastic_derivative':    c.stochastic_derivative(),
-            'product_stochastic':       c.d_stoch_stoch_product()
+            'product_stochastic':       c.d_stoch_stoch_product(),
+            'stochastic':               c.stochastic()
             }
         return cols
 
 
     def __apply(self):
         cols = self.__compute()
-        # Write the ML Strategy here !
+        values = []
+        for value in cols.values():
+            values.append(value)
+        array = np.array(values)
 
+        # Standard Scaler's parameters loading
+        mean = pickle.load(open("mean.p", "rb"))
+        std = pickle.load(open( "std.p", "rb"))
+
+        # Standard Scaler's reconstruction
+        scaler = StandardScaler(copy=False)
+        scaler.mean_ = mean
+        scaler.std_ = std
+
+        # fit_transform data
+        X = scaler.fit_transform(array)
+
+        # PCA Loading
+        pca = pickle.load( open( "pca.p", "rb" ) )
+
+        # Transformation test and train data from PCA loaded
+        X = pca.transform(X)
+
+        ### 3rd step
+        ## Prediction
+
+        clf = pickle.load( open( "clf.p", "rb" ) )
+        prediction = clf.predict(X)
         print(json.dumps(cols, indent=4))
-        return 'Buy' # Sell or Wait
+        if prediction == 0:
+            return 'Sell'
+        elif prediction == 1:
+            return 'Buy'
+        else:
+            return 'error'
+    
+        
 
 
 
