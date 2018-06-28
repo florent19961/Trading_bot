@@ -1,14 +1,17 @@
-from models import Candles
 import numpy as np
 import json
+from datetime import datetime
+from models import CandlesFromTrades, Decision
+
 import pickle
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
+
 class Calculus():
     def __init__(self, product, granularity=3600):
-        self.last_candles = Candles(product).get_last_candles(granularity,30)
+        self.last_candles = CandlesFromTrades(product).get_last_candles(granularity,30)
         self.last_prices = [c['close'] for c in self.last_candles]
 
     def __mme(self,last_prices):
@@ -112,30 +115,34 @@ class Calculus():
         return self.stochastic_derivative() * self.stochastic()
 
 
-class Macd():
-    def __init__(self, product):
-        self.name = 'macd'
+class Strategy():
+    def __init__(self, product, name):
+        self.__decision = 'Wait'
+        self.name = name
         self.product = product
 
-    def __compute(self):
-        #last26 should be sorted from the newest to the oldest
-        return Calculus(self.product, 3600).macd()
+    def get_decision(self):
+        return Decision(datetime.utcnow(), self.__decision, self.name)
 
-    def apply(self):
-        macd = self.__compute()
+
+class Macd(Strategy):
+    def __init__(self, product):
+        super().__init__(self, product, 'MACD')
+        macd = Calculus(self.product, 3600).macd()
         if macd > 0:
-            return 'Buy'
+            self.__decison = 'Buy'
         elif macd < 0:
-            return 'Sell'
+            self.__decison = 'Sell'
         else:
-            return 'Wait'
+            self.__decison = 'Wait'
 
-
-class MLStrategy():
+        
+class MLStrategy(Strategy):
     def __init__(self, product):
-        self.name = 'Machine Learning Strategy'
-        self.product = product
-    
+        super().__init__(self, product, 'Machine Learning Strategy')
+        self.decision = self.__apply()
+
+
     def __compute(self):
         c = Calculus(self.product, 3600)
         price = c.last_price()
@@ -165,7 +172,7 @@ class MLStrategy():
         return cols
 
 
-    def apply(self):
+    def __apply(self):
         cols = self.__compute()
         values = []
         for value in cols.values():

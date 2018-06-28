@@ -1,107 +1,107 @@
-from pymongo import MongoClient
-import time
+from pymongo import MongoClient, IndexModel
+from pymodm import MongoModel, EmbeddedMongoModel, fields, connect
+from pymodm.queryset import QuerySet
+from pymodm.manager import Manager
 from datetime import datetime, timedelta
+from urllib.parse import quote_plus
+import config
 import logging
+import os
 
+user_name = os.environ.get('USERNAME')
+db_password = os.environ.get('DATABASE_PASSWORD')
+db_uri = os.environ.get('DATABASE_URI')
 
 logger = logging.getLogger('client')
+
 db = MongoClient('localhost', 27017).Cryptobase
+mongo_uri = 'mongodb://{}:{}@{}/cryptobase'.format(
+    quote_plus(user_name), quote_plus(db_password), db_uri)
+connect(mongo_uri)
 
-class Ticker():
-    def __init__(self, ticker):
-        try:
-            self.__check_ticker_keys(ticker)
+products_list = ('BTC-EUR', 'ETH-EUR', 'LTC-EUR', 'BCH-EUR')
 
-            self.product = str(ticker['product_id'])
-            self.sequence = int(ticker['sequence'])
-            self.price = float(ticker['price'])
-            self.open_24h = float(ticker['open_24h'])
-            self.volume_24h = float(ticker['volume_24h'])
-            self.low_24h = float(ticker['low_24h'])
-            self.high_24h = float(ticker['high_24h'])
-            self.volume_30d = float(ticker['volume_30d'])
-            self.best_bid = float(ticker['best_bid'])
-            self.best_ask = float(ticker['best_ask'])
-            self.side = str(ticker['side'])
-            self.time = datetime.strptime(ticker['time'],'%Y-%m-%dT%H:%M:%S.%fZ')
-            self.trade_id = int(ticker['trade_id'])
-            self.last_size = float(ticker['last_size'])
-        except KeyError as e:
-            logger.error(f'ticker cannot be created : {e}')
-        except Exception as e:
-            logger.error(f'Ticker.__init__() failed : {e}')
 
-    def __check_ticker_keys(self, ticker):
-        required_keys = [
-            "product_id",
-            "sequence",
-            "price",
-            "open_24h",
-            "volume_24h",
-            "low_24h",
-            "high_24h",
-            "volume_30d",
-            "best_bid",
-            "best_ask",
-            "side",
-            "time",
-            "trade_id",
-            "last_size"
+# Trades
+class TickerData(EmbeddedMongoModel):
+    sequence = fields.IntegerField(min_value=0)
+    open_24h = fields.FloatField(min_value=0)
+    volume_24h = fields.FloatField(min_value=0)
+    low_24h = fields.FloatField(min_value=0)
+    high_24h = fields.FloatField(min_value=0)
+    volume_30d = fields.FloatField(min_value=0)
+    best_bid = fields.FloatField(min_value=0)
+    best_ask = fields.FloatField(min_value=0)
+
+
+class Trade(MongoModel):
+    trade_id = fields.IntegerField(min_value=0)
+    time = fields.DateTimeField(required=True)
+    product_id = fields.CharField(required=True, choices=products_list)
+    size = fields.FloatField(required=True)
+    price = fields.FloatField(required=True)
+    side = fields.CharField(required=True, choices=('buy', 'sell'))
+    ticker_data = fields.EmbeddedDocumentField(TickerData, required=False)
+
+    class Meta:
+        final = True
+        indexes = [
+            IndexModel([('product_id', 1), ('time', -1)])
         ]
-        for key in required_keys:
-            if key not in ticker:
-                logger.error(f'missing \"{key}\" key in ticker')
-                raise KeyError
-
-    def save_one(self):
-        try:
-            tickers = db[f'tickers_{self.product}']  # the collection
-            ticker = {
-                "sequence": self.sequence,
-                "price": self.price,
-                "open_24h": self.open_24h,
-                "volume_24h": self.volume_24h,
-                "low_24h": self.low_24h,
-                "high_24h": self.high_24h,
-                "volume_30d": self.volume_30d,
-                "best_bid": self.best_bid,
-                "best_ask": self.best_ask,
-                "side": self.side,
-                "time": self.time,
-                "trade_id":self.trade_id,
-                "last_size": self.last_size
-            }
-            tickers.insert_one(ticker)
-        except Exception as e:
-            logger.error(f'Ticker could not be saved : {e}')
 
 
-class Decisions():
-    def __init__(self, product='BTC-EUR'):
-        self.product = product
-
-    def save_one(self, decision, strategy, order_book):
-        try:
-            decisions = db[f'decisions_{self.product}']
-            decision_to_save = {
-                'time': datetime.utcnow(),
-                'decision': decision,
-                'strategy': strategy,
-                'order_book': order_book
-            }
-            decisions.insert_one(decision_to_save)
-        except Exception as e:
-            logger.error(f'Ticker could not be saved : {e}')
-
-    def get_last(self):
-        try:
-            decisions = db[f'decisions_{self.product}']
-            return decisions.find().sort('time', -1).limit(1)[0]['decision'] #find latest
-        except:
-            return 'Wait'
+# Decisions
+class OrderBook(EmbeddedMongoModel):
+    sequence = fields.IntegerField(min_value=0)
+    bids = fields.ListField()
+    asks = fields.ListField()
 
 
-class Candles():
+class DecisionManager(Manager):
+    def last_decision(self, product_id):
+        '''Return last decision.'''
+        return self.raw({'product_id': product_id}).order_by([('time', -1)]).limit(1)[0].decision
+
+
+class Decision(MongoModel):
+    time = fields.DateTimeField(required=True)
+    product_id = fields.CharField(required=True, choices=products_list)
+    decision = fields.CharField(required=True, choices=('Buy', 'Sell', 'Wait'))
+    strategy = fields.CharField(required=True)
+    order_book = fields.EmbeddedDocumentField(OrderBook, required=False)
+
+    objects = DecisionManager()
+    class Meta:
+        final = True
+        indexes=[IndexModel([('product_id', 1), ('time', -1)])]
+
+
+# Candles
+class AggregatedData(EmbeddedMongoModel):
+    mme12 = fields.FloatField(min_value=0)
+    mme26 = fields.FloatField(min_value=0)
+    macd = fields.FloatField()
+    lower_bollinger = fields.FloatField(min_value=0)
+    upper_bollinger = fields.FloatField(min_value=0)
+
+
+class Candle(MongoModel):
+    time = fields.DateTimeField(required=True)
+    product_id = fields.CharField(required=True, choices=products_list)
+    length = fields.IntegerField(min_value=60, required=True)
+    low = fields.FloatField(min_value=0, required=True)
+    high = fields.FloatField(min_value=0, required=True)
+    open = fields.FloatField(min_value=0, required=True)
+    close = fields.FloatField(min_value=0, required=True)
+    volume = fields.FloatField(min_value=0, required=True)
+    aggregated_data = fields.EmbeddedDocumentField(AggregatedData, required=False)
+
+    class Meta:
+        final = True
+        indexes=[IndexModel([('product_id', 1), ('length', 1), ('time', -1)])]
+
+
+class CandlesFromTrades():
     def __init__(self, product):
         self.product = product
 
@@ -114,13 +114,6 @@ class Candles():
             candle = self.__aggregate_into_candle(start, end)
             candles.append(candle)
         return candles
-
-    def get_last_candles_price_list(self, granularity, candles_number):
-        candles = self.get_last_candles(granularity, candles_number)
-        price_list = []
-        for candle in candles:
-            price_list.append(candle['close'])
-        return price_list
 
     def __aggregate_into_candle(self, start, end):
         tickers = db[f'tickers_{self.product}']  # the collection

@@ -1,37 +1,29 @@
 # DB Structure
 
-Each product has its own set of collections.
+
 ## Collections
 
-    - decisions_[product]
-    - tickers_[product]
-    - candles_[product]_[granularity]
-
-    The candles collection is useful for a candle based decision model. However to be faster to react, we should better not use this model and compute aggregates on the tickers collection whenever making a decision (the candles collection becomes obsolete).
+    - decision
+    - trades
+    - candles
 
 ### The decisions collection (decisions_product)
 
-    - date (when the candle begins UTC)
-    - timestamp (seconds since EPOCH at the beginning of the candle) # Should we ?
+    - time (when the candle begins in UTC)
+    - product_id ('BTC-EUR', 'ETH-EUR', 'LTC-EUR', 'BCH-EUR')
     - decision ('Buy', 'Wait', 'Sell')
-    - strategy (name of the strategy used to make the decision)
+    - strategy (the name of the strategy used to make the decision)
+    - order_book (snapshot of the order boook at that time)
 
-### The tickers collection
+### The trades collection
 
-    - sequence
-    - timestamp
     - trade_id
+    - time
     - product_id
+    - size
     - price
-    - open_24h
-    - volume_24h
-    - low_24h
-    - high_24h
-    - volume_30d
-    - best_bid
-    - best_ask
-    - side
-    - last_size
+    - side ('buy', 'sell')
+    - ticker_data (data from the ticker if available)
 
 ### The candles collection
 
